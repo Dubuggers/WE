@@ -1,0 +1,127 @@
+
+#include <ESP8266WiFi.h>
+#include <PubSubClient.h>
+#include "DHT.h"
+#define DHTPIN 2 //D4
+#define rele 5 //D1
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+const char* ssid = "HACKATHON";
+const char* password = "hackathonparana2017";
+const char* mqtt_server = "iot.eclipse.org";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+char temp[50];
+char umi[50];
+int value = 0;
+
+void setup_wifi() {
+
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  randomSeed(micros());
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+
+  if ((char)payload[0] == '1') {
+    digitalWrite(rele, HIGH);
+  } else {
+    digitalWrite(rele, LOW);
+  }
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish("hackathon/Contectado", "Contectado");
+      // ... and resubscribe
+      client.subscribe("hackathon/debuggers");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+  Serial.begin(115200);
+  Serial.println("DHTxx test!");
+   pinMode(5, OUTPUT);
+  dht.begin();
+}
+
+void loop() {
+
+  if (!client.connected()) {
+    reconnect();
+  }
+  long  h = dht.readHumidity();
+  long t = dht.readTemperature();
+  long f = dht.readTemperature(true);
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  
+  client.loop();
+  long now = millis();
+  if (now - lastMsg > 2000) {
+    lastMsg = now;
+    ++value;
+   // snprintf (msg, 75, "Conectado #%ld", value);
+    Serial.print("Publish message: ");
+    Serial.println(msg);
+    
+    snprintf (umi, 75, "%ld", h);
+    snprintf (temp, 75, "%ld", t);
+    client.publish("hackathon/debuggers /umidade", umi);
+    client.publish("hackathon/debuggers/temperatura", temp);
+
+  Serial.print("Humidity: ");
+  Serial.print(h);
+  Serial.print(" %\t");
+  Serial.print("Temperature: ");
+  Serial.print(t);
+  }
+}

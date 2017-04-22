@@ -3,7 +3,7 @@
 #include <PubSubClient.h>
 #include "DHT.h"
 #define DHTPIN 2 //D4
-#define rele 5 //D1
+#define RELEPIN 15 //D8
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -50,14 +50,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println();
 
   if ((char)payload[0] == '1') {
-    digitalWrite(rele, HIGH);
+    digitalWrite(RELEPIN, HIGH);
   } else {
-    digitalWrite(rele, LOW);
+    digitalWrite(RELEPIN, LOW);
   }
 }
 
 void reconnect() {
-  // Loop until we're reconnected
+  // Loop until we're reconnected   
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
     // Create a random client ID
@@ -65,9 +65,9 @@ void reconnect() {
     clientId += String(random(0xffff), HEX);
     // Attempt to connect
     if (client.connect(clientId.c_str())) {
-      Serial.println("connected");
+     // Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("hackathon/Contectado", "Contectado");
+    //  client.publish("hackathon/Contectado", "Contectado");
       // ... and resubscribe
       client.subscribe("hackathon/debuggers");
     } else {
@@ -87,7 +87,7 @@ void setup() {
   client.setCallback(callback);
   Serial.begin(115200);
   Serial.println("DHTxx test!");
-   pinMode(5, OUTPUT);
+   pinMode(15, OUTPUT);
   dht.begin();
 }
 
@@ -110,13 +110,18 @@ void loop() {
     lastMsg = now;
     ++value;
    // snprintf (msg, 75, "Conectado #%ld", value);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
+  //  Serial.print("Publish message: ");
+  //  Serial.println(msg);
     
+ 
     snprintf (umi, 75, "%ld", h);
+    if(h<101){
+      client.publish("hackathon/debuggers/umidade", umi);
+    }
     snprintf (temp, 75, "%ld", t);
-    client.publish("hackathon/debuggers /umidade", umi);
-    client.publish("hackathon/debuggers/temperatura", temp);
+    if(t<101){
+      client.publish("hackathon/debuggers/temperatura", temp);
+    }
 
   Serial.print("Humidity: ");
   Serial.print(h);
